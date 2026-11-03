@@ -149,7 +149,7 @@
         <p id="ov-text">Help Avi and Sami get along.</p>
         <ul class="rules" id="ov-rules">
           <li>Clear a line and they <b>hug</b>. The peace meter goes up.</li>
-          <li>Leave a gap under a block and they <b>squabble</b>. The meter goes down.</li>
+          <li>Leave a gap under a block and they <b>argue</b> about the conflict. The meter goes down.</li>
           <li>Fill the meter to start a <b>Peace Festival</b>: double points while they dance.</li>
           <li>If the meter hits zero, a <b>shouting match</b> adds a junk row.</li>
           <li>Every 6 lines a <b>dove</b> arrives. It's one block, perfect for filling a gap.</li>
@@ -206,13 +206,37 @@
     ['Shalom!', 'Salaam!'], ['Hummus at mine?', "I'll bring pita!"], ['Best neighbors!', 'The best!'],
     ['Coffee?', "Only if I pay!"], ['Nice block!', 'Nice block!'], ['Group hug!', 'Get in here!'],
     ["Your mom's cooking!", 'Yours too!'], ['We make a team!', 'Dream team!'],
+    ['I hear you.', 'I hear you too.'], ['Both our stories matter.', 'Both our pain is real.'],
+    ["Let's share it.", 'Together, then.'], ['Our kids should be friends.', 'They already are.'],
   ];
-  const ANGRY_LINES = [
-    ["That's MY spot!", 'No, MY spot!'], ['Who invented hummus?!', 'WE did!'], ['You left a gap!', 'YOU did!'],
-    ['Hmph!', 'Hmph!!'], ['You started it!', 'Did not!'], ['My falafel is better!', 'In your dreams!'],
-    ['Move your car!', 'Move YOURS!'], ['Too loud!', 'YOU\'RE too loud!'],
+  // Bad moves start an argument: each pair is [Avi, Sami], one side's grievance answered by the other's
+  const ARGUMENTS = [
+    ['God gave us this land!', 'You stole my land!'],
+    ['We were here 3,000 years ago!', 'My family was here for ages!'],
+    ['We need security!', 'We need freedom!'],
+    ['Jerusalem is our capital!', 'Al-Quds is OUR capital!'],
+    ['Stop the rockets!', 'End the occupation!'],
+    ['This is our only homeland!', 'This is OUR only homeland!'],
+    ['We came back to survive!', 'We were forced out in 1948!'],
+    ['Checkpoints keep us safe!', 'Checkpoints humiliate us!'],
+    ['You rejected every peace deal!', 'Your deals were never fair!'],
+    ['We were refugees too!', 'Let our refugees return!'],
+    ['The wall stops attacks!', 'The wall takes our land!'],
+    ['Settlements are our heritage!', 'Settlements are illegal!'],
+    ['Recognize Israel!', 'Recognize Palestine!'],
+    ['You started the war!', 'No, YOU started it!'],
+    ['The whole world is against us!', 'The whole world ignores us!'],
+    ['Hebron is our holy city!', 'Al-Khalil is OUR holy city!'],
   ];
-  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  // Deal lines from a shuffled pile so none repeats until every line has been used
+  function deck(lines) {
+    let pile = [];
+    return () => {
+      if (!pile.length) pile = lines.slice().sort(() => Math.random() - 0.5);
+      return pile.pop();
+    };
+  }
+  const nextArgument = deck(ARGUMENTS), nextHug = deck(HUG_LINES);
 
   const $ = id => document.getElementById(id);
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -320,11 +344,9 @@
     hold: () => oud(hz(9), 0.06, 0.2),
     lock: () => tone(196, { type: 'triangle', gain: 0.07, dur: 0.08 }),
     drop: () => { doum(); noise(0.06, { gain: 0.06, type: 'lowpass', freq: 900 }); },
-    hug: n => {
-      // A warm major chord and a rising bell run
-      [0, 4, 7, 12].forEach((s, i) => tone(MAJ(s), { gain: 0.07, dur: 1.2, attack: 0.04, when: i * 0.02, vibrato: 2 }));
-      for (let i = 0; i < 3 + n; i++) tone(MAJ([12, 16, 19, 24, 28, 31, 36][i]), { gain: 0.06, dur: 0.6, when: 0.08 + i * 0.07 });
-      noise(0.5, { gain: 0.05, type: 'bandpass', freq: 3000, sweepTo: 9000, q: 4 });
+    chime: n => {
+      for (let i = 0; i < 2 + n; i++) tone(hz(9 + i * 2), { gain: 0.035, dur: 0.6, when: i * 0.07 });
+      noise(0.5, { gain: 0.04, type: 'bandpass', freq: 3000, sweepTo: 9000, q: 4 });
     },
     squabble: () => {
       // Two grumbly voices going back and forth
@@ -344,10 +366,72 @@
     over: () => [4, 3, 2, 1, 0].forEach((d, i) => tone(hz(d), { type: 'triangle', gain: 0.1, dur: 0.6, when: i * 0.18 })),
   };
 
+  // Line-clear sounds alternate between the two traditions.
+  // A wordless vocal line in the style of the call to prayer: a buzzy tone shaped by vowel formants,
+  // gliding and ornamenting between maqam notes
+  function chant(when = 0) {
+    if (!ac || muted) return;
+    const t0 = ac.currentTime + when;
+    const notes = [[2, 0.55], [3, 0.12], [2, 0.12], [1, 0.12], [2, 0.4], [4, 0.32], [3, 0.14], [2, 0.14], [1, 0.14], [2, 0.8]];
+    const total = notes.reduce((a, n) => a + n[1], 0);
+    const o = ac.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(hz(notes[0][0] - 7), t0);
+    let t = t0;
+    for (const [d, len] of notes) { o.frequency.setTargetAtTime(hz(d - 7), t, 0.035); t += len; }
+    const lfo = ac.createOscillator(), lg = ac.createGain();
+    lfo.frequency.value = 5.2; lg.gain.value = 3;
+    lfo.connect(lg); lg.connect(o.frequency);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.18);
+    g.gain.setValueAtTime(0.5, t0 + total - 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + total);
+    for (const [freq, q] of [[700, 5], [1150, 7], [2600, 9]]) {
+      const f = ac.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+      o.connect(f); f.connect(g);
+    }
+    g.connect(master);
+    o.start(t0); lfo.start(t0);
+    o.stop(t0 + total + 0.05); lfo.stop(t0 + total + 0.05);
+  }
+
+  // A shofar (ram's horn): a buzzy blast that scoops up to its note and breaks upward at the end
+  function shofarBlast(t0, len, f) {
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.05);
+    g.gain.setValueAtTime(0.22, t0 + len - 0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    const bp = ac.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = f * 3; bp.Q.value = 1.1;
+    bp.connect(g); g.connect(master);
+    for (const type of ['sawtooth', 'square']) {
+      const o = ac.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f * 0.7, t0);
+      o.frequency.exponentialRampToValueAtTime(f, t0 + 0.12);
+      if (len > 0.5) {
+        o.frequency.setValueAtTime(f, t0 + len - 0.18);
+        o.frequency.exponentialRampToValueAtTime(f * 1.5, t0 + len - 0.05);
+      }
+      o.connect(bp);
+      o.start(t0); o.stop(t0 + len + 0.05);
+    }
+  }
+  function shofar(n, when = 0) {
+    if (!ac || muted) return;
+    let t = ac.currentTime + when;
+    // Two or more lines: three broken blasts (shevarim) before the long one (tekiah)
+    if (n >= 2) for (let i = 0; i < 3; i++) { shofarBlast(t, 0.3, 233); t += 0.38; }
+    shofarBlast(t, 1.2, 233);
+  }
+
   // ---------- Game state ----------
   let grid, piece, queue, bag, holdType, canHold;
   let score = 0, lines = 0, level = 1, peace = 50, linesSinceDove = 0, doveCount = 0;
-  let festivalUntil = 0;
+  let festivalUntil = 0, clearCount = 0, melodyRestUntil = 0;
   let phase = 'menu', prevPhase = 'play';
   let dropInterval = 800, dropTimer = 0;
   let flashRows = [], flashTimer = 0, treatyTimer = 0;
@@ -521,13 +605,16 @@
       dropInterval = Math.max(80, 800 - (level - 1) * 65);
       full.forEach(r => { for (let c = 0; c < COLS; c++) burst(c, r, COLORS[grid[r][c]]); });
       flashRows = full;
-      sfx.hug(n);
+      sfx.chime(n);
+      if (n === 4) { shofar(4); chant(1.4); }
+      else if (clearCount++ % 2 === 0) shofar(n);
+      else chant();
+      melodyRestUntil = now + (n === 4 ? 4500 : 2600);
       changePeace(n === 4 ? 40 : 9 * n);
-      setScene(festival() ? 'dance' : 'hug', 2200, pick(HUG_LINES));
+      setScene(festival() ? 'dance' : 'hug', 2400, nextHug());
       if (n === 4) {
         phase = 'treaty';
         treatyTimer = 1700;
-        sfx.treaty();
         for (let i = 0; i < 8; i++) flyDove(Math.random() * BW, BH * 0.5 + Math.random() * 200);
       } else {
         phase = 'clear';
@@ -543,8 +630,8 @@
       const made = countHoles() - holesBefore;
       if (made > 0) {
         changePeace(-Math.min(18, 7 * made));
-        if (scene.mood !== 'angry' || now > scene.until - 800) {
-          setScene('angry', 1800, pick(ANGRY_LINES));
+        if (scene.mood !== 'angry' || now > scene.until - 1200) {
+          setScene('angry', 2800, nextArgument());
           sfx.squabble();
         }
       } else changePeace(1);
@@ -617,7 +704,8 @@
       tone(hz(-3), { type: 'sine', gain: 0.05, dur: 3.5, attack: 0.3 });
     }
     const note = MELODY[i % MELODY.length];
-    if (note === null) return;
+    // The tune rests while a line-clear call is sounding; the drums keep going
+    if (note === null || now < melodyRestUntil) return;
     if (peace < 25 && !festival()) {
       // When tensions are high the tune thins out and drops low
       if (i % 2 === 0) oud(hz(note - 7), 0.08, 0.5);
@@ -811,18 +899,30 @@
     c.restore();
   }
 
+  // Draws a speech bubble and returns its bottom edge; long lines wrap onto two rows
   function bubble(c, x, y, text, s, tailDir) {
-    c.font = `700 ${Math.round(10.5 * s)}px ui-rounded, system-ui, sans-serif`;
-    const w = c.measureText(text).width + 12 * s, h = 19 * s;
+    const fs = Math.min(11, Math.round(10.5 * s));
+    c.font = `700 ${fs}px ui-rounded, system-ui, sans-serif`;
+    const maxW = c.canvas.width / dpr - 6;
+    let rows = [text];
+    if (c.measureText(text).width + 12 * s > maxW) {
+      const words = text.split(' ');
+      const half = Math.ceil(words.length / 2);
+      rows = [words.slice(0, half).join(' '), words.slice(half).join(' ')];
+    }
+    const lh = fs * 1.2;
+    const w = Math.max(...rows.map(r => c.measureText(r).width)) + 12 * s;
+    const h = lh * rows.length + 7 * s;
     const bx = Math.max(2, Math.min(x - w / 2, c.canvas.width / dpr - w - 2));
     c.fillStyle = '#fffdf6';
     rr(c, bx, y, w, h, 8 * s); c.fill();
     c.beginPath();
-    c.moveTo(x - 4 * s, y + h - 1); c.lineTo(x + tailDir * 6 * s, y + h + 7 * s); c.lineTo(x + 5 * s, y + h - 1);
+    c.moveTo(x - 4 * s, y + h - 1); c.lineTo(x + tailDir * 6 * s, y + h + 6 * s); c.lineTo(x + 5 * s, y + h - 1);
     c.fill();
     c.fillStyle = '#2a2233';
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(text, bx + w / 2, y + h / 2 + 0.5);
+    rows.forEach((r, i) => c.fillText(r, bx + w / 2, y + 3.5 * s + lh * (i + 0.5)));
+    return y + h;
   }
 
   function drawScene(c, ox, oy, w, h, mood, t, said, { bg = true } = {}) {
@@ -887,8 +987,8 @@
       person(c, cx + dl, base - bob, s, 'sami', mood, { armsCrossed: crossed, rot: crossed ? 0.06 : 0 });
     }
     if (said) {
-      bubble(c, ox + w * 0.27, oy + 5 * s, said[0], s, 1);
-      bubble(c, ox + w * 0.73, oy + 28 * s, said[1], s, -1);
+      const bottom = bubble(c, ox + w * 0.27, oy + 4 * s, said[0], s, 1);
+      bubble(c, ox + w * 0.73, Math.max(oy + 27 * s, bottom + 4 * s), said[1], s, -1);
     }
     c.restore();
   }
@@ -1060,7 +1160,7 @@
     bag = null; queue = []; holdType = null; canHold = true;
     while (queue.length < 3) queue.push(nextFromBag());
     score = 0; lines = 0; level = 1; peace = 50; linesSinceDove = 0;
-    festivalUntil = 0; festivalWasOn = false;
+    festivalUntil = 0; festivalWasOn = false; clearCount = 0; melodyRestUntil = 0;
     dropInterval = 800; particles = []; flashRows = [];
     stepAcc = 0; stepIdx = 0;
     setScene('happy', 1600, ['Ready, neighbor?', "Let's do this!"]);

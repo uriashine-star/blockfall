@@ -3,80 +3,159 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<title>Blockfall</title>
+<title>Blockfall: Twist</title>
 <style>
   :root {
-    --bg: #0f1020;
-    --panel: #181a33;
-    --line: #2a2d52;
-    --text: #e8e9ff;
-    --muted: #8b8fc7;
-    --accent: #ffcf5c;
+    --bg: #07061a;
+    --panel: rgba(22, 18, 52, 0.78);
+    --line: #3b2f80;
+    --text: #f1edff;
+    --muted: #9d93d6;
+    --pink: #ff4fd8;
+    --cyan: #4ff0ff;
+    --gold: #ffd84f;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; min-height: 100%; }
   body {
-    background: radial-gradient(circle at 50% 0%, #1d2050 0%, var(--bg) 60%);
-    color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
     display: flex; flex-direction: column; align-items: center;
-    padding: 16px; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    padding: 16px; overflow-x: hidden;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
   }
-  h1 { margin: 4px 0 12px; font-size: 28px; letter-spacing: 3px; color: var(--accent); }
-  .game { display: flex; gap: 16px; align-items: flex-start; }
-  .board-wrap { position: relative; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+  header { text-align: center; margin-bottom: 14px; position: relative; width: min(720px, 100%); }
+  h1 {
+    margin: 0; font-size: 32px; letter-spacing: 5px; font-weight: 900;
+    background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tag { color: var(--muted); font-size: 13px; letter-spacing: 1px; margin-top: 2px; }
+  #mute {
+    position: absolute; right: 0; top: 4px; margin: 0; padding: 6px 10px; font-size: 13px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  }
+  .game { display: flex; gap: 18px; align-items: flex-start; justify-content: center; }
+  .side { display: flex; flex-direction: column; gap: 12px; width: 120px; }
+  .box {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px 6px; text-align: center; backdrop-filter: blur(6px);
+  }
+  .label { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+  .value { font-size: 20px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .box canvas { display: block; margin: 4px auto 0; }
+  .meter { display: flex; gap: 4px; margin: 8px 4px 2px; }
+  .meter i { flex: 1; height: 12px; border-radius: 4px; background: #2a2260; transition: background .2s, box-shadow .2s; }
+  .meter i.on { background: var(--pink); box-shadow: 0 0 10px var(--pink); }
+  .meter.ready i { background: var(--gold); box-shadow: 0 0 12px var(--gold); animation: blink .6s infinite alternate; }
+  @keyframes blink { to { opacity: .5; } }
+  .hint { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  .stage { position: relative; width: min(448px, 92vw); aspect-ratio: 1; }
   #board {
-    display: block; background: var(--panel); border: 2px solid var(--line); border-radius: 10px;
-    width: min(300px, 62vw); height: auto; aspect-ratio: 1 / 2;
+    width: 100%; height: 100%; display: block; border-radius: 14px;
+    background: rgba(14, 11, 38, 0.9);
+    box-shadow: 0 0 0 2px var(--line), 0 0 50px rgba(160, 80, 255, 0.35);
+    will-change: transform;
   }
-  .side { display: flex; flex-direction: column; gap: 12px; width: 110px; }
-  .box { background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; }
-  .label { font-size: 11px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
-  .value { font-size: 20px; font-weight: 700; margin-top: 2px; }
-  .box canvas { width: 80px; height: 80px; display: block; margin: 4px auto 0; }
+  .pops { position: absolute; inset: 0; pointer-events: none; }
+  .pop {
+    position: absolute; left: 50%; top: 40%; font-weight: 900; font-size: clamp(18px, 5.5vw, 30px); letter-spacing: 2px;
+    width: 92%; text-align: center; line-height: 1.1; color: #fff; animation: pop 1.2s ease-out forwards;
+  }
+  .pop.pink { color: var(--pink); text-shadow: 0 0 18px var(--pink); }
+  .pop.cyan { color: var(--cyan); text-shadow: 0 0 18px var(--cyan); }
+  .pop.gold { color: var(--gold); text-shadow: 0 0 18px var(--gold); }
+  @keyframes pop {
+    0% { opacity: 0; transform: translate(-50%, -30%) scale(.5); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    30% { transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -140%) scale(1); }
+  }
   .overlay {
     position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: rgba(10, 11, 25, 0.82); border-radius: 10px; text-align: center; padding: 16px;
+    background: rgba(8, 6, 26, 0.86); border-radius: 14px; text-align: center; padding: 20px;
   }
   .overlay.hidden { display: none; }
-  .overlay h2 { margin: 0 0 8px; color: var(--accent); }
-  .overlay p { margin: 4px 0; color: var(--muted); font-size: 14px; }
-  button {
-    font: inherit; background: var(--accent); color: #1a1500; border: 0; border-radius: 8px;
-    padding: 10px 18px; font-weight: 700; cursor: pointer; margin-top: 12px;
+  .overlay h2 {
+    margin: 0 0 6px; font-size: 34px; letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .help { color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 14px; text-align: center; max-width: 440px; }
-  .touch { display: none; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; max-width: 360px; }
-  .touch button { margin: 0; width: 64px; height: 52px; font-size: 20px; background: var(--panel); color: var(--text); border: 2px solid var(--line); }
+  .overlay p { margin: 4px 0; color: var(--muted); font-size: 14px; }
+  .rules { text-align: left; color: var(--text); font-size: 13px; line-height: 1.5; margin: 10px 0 0; padding-left: 18px; max-width: 340px; }
+  .rules b { color: var(--gold); }
+  .rules.hidden { display: none; }
+  button {
+    font: inherit; background: linear-gradient(90deg, var(--pink), #b04fff); color: #fff; border: 0; border-radius: 10px;
+    padding: 11px 26px; font-weight: 800; letter-spacing: 1px; cursor: pointer; margin-top: 14px;
+    box-shadow: 0 0 20px rgba(255, 79, 216, 0.45);
+  }
+  .classic { color: var(--muted); font-size: 12px; margin-top: 12px; }
+  .help { color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 14px; text-align: center; max-width: 560px; }
+  .help b { color: var(--text); }
+  .touch { display: none; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; max-width: 380px; }
+  .touch button {
+    margin: 0; width: 64px; height: 52px; font-size: 18px; padding: 0;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: none;
+  }
+  .touch button.tw { width: 98px; color: var(--gold); border-color: var(--gold); font-size: 15px; }
   @media (pointer: coarse) { .touch { display: flex; } .help .keys { display: none; } }
-  @media (max-width: 480px) {
-    .game { gap: 10px; }
-    .side { width: 84px; }
-    .box canvas { width: 60px; height: 60px; }
+  @media (max-width: 820px) {
+    .game { flex-direction: column; align-items: center; gap: 10px; }
+    .side { flex-direction: row; width: auto; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .side .box { min-width: 68px; padding: 6px 8px; }
     .value { font-size: 16px; }
+    .right { order: 0; } .stage { order: 1; } .left { order: 2; }
+    .left .box.twist { width: 150px; }
+    #mute { position: static; margin-top: 8px; }
   }
 </style>
 </head>
 <body>
-  <h1>BLOCKFALL</h1>
+  <canvas id="bg"></canvas>
+  <header>
+    <h1>BLOCKFALL: TWIST</h1>
+    <div class="tag">Spin the world. Play the stack.</div>
+    <button id="mute">♪ Sound on</button>
+  </header>
+
   <div class="game">
-    <div class="board-wrap">
-      <canvas id="board" width="300" height="600"></canvas>
-      <div class="overlay" id="overlay">
-        <h2 id="ov-title">Blockfall</h2>
-        <p id="ov-text">Stack the blocks. Clear the lines.</p>
-        <button id="ov-btn">Play</button>
+    <div class="side left">
+      <div class="box"><div class="label">Hold</div><canvas id="hold"></canvas></div>
+      <div class="box twist">
+        <div class="label">Twist</div>
+        <div class="meter" id="meter"><i></i><i></i><i></i><i></i></div>
+        <div class="hint" id="twist-hint">Clear 4 lines to charge</div>
       </div>
     </div>
-    <div class="side">
-      <div class="box"><div class="label">Next</div><canvas id="next" width="80" height="80"></canvas></div>
-      <div class="box"><div class="label">Hold</div><canvas id="hold" width="80" height="80"></canvas></div>
+
+    <div class="stage">
+      <canvas id="board"></canvas>
+      <div class="pops" id="pops"></div>
+      <div class="overlay" id="overlay">
+        <h2 id="ov-title">TWIST</h2>
+        <p id="ov-text">A falling-block game where the world spins.</p>
+        <ul class="rules" id="ov-rules">
+          <li>Clearing lines charges your <b>Twist</b> meter.</li>
+          <li>When it's full, press <b>Q</b> or <b>E</b> to spin the whole board. Everything falls, and new lines form.</li>
+          <li>Lines cleared by a twist score <b>×2</b>.</li>
+          <li>Every level-up, the world turns on its own.</li>
+          <li>Your stack is the song: each column is a beat, each row a note.</li>
+        </ul>
+        <button id="ov-btn">Play</button>
+        <a class="classic" href="classic.html">Play the classic version</a>
+      </div>
+    </div>
+
+    <div class="side right">
+      <div class="box"><div class="label">Next</div><canvas id="next"></canvas></div>
       <div class="box"><div class="label">Score</div><div class="value" id="score">0</div></div>
       <div class="box"><div class="label">Lines</div><div class="value" id="lines">0</div></div>
       <div class="box"><div class="label">Level</div><div class="value" id="level">1</div></div>
       <div class="box"><div class="label">Best</div><div class="value" id="best">0</div></div>
     </div>
   </div>
+
   <div class="touch">
     <button data-act="left">◀</button>
     <button data-act="rotate">⟳</button>
@@ -84,15 +163,19 @@
     <button data-act="soft">▼</button>
     <button data-act="drop">⤓</button>
     <button data-act="hold">H</button>
+    <button data-act="twistL" class="tw">↺ Twist</button>
+    <button data-act="twistR" class="tw">Twist ↻</button>
     <button data-act="pause">❚❚</button>
   </div>
-  <div class="help"><span class="keys">← → move · ↑ / X rotate · Z rotate back · ↓ soft drop · Space hard drop · C hold · P pause</span></div>
+  <div class="help"><span class="keys">
+    <b>← →</b> move · <b>↑ / X</b> rotate · <b>Z</b> rotate back · <b>↓</b> soft drop · <b>Space</b> hard drop ·
+    <b>C</b> hold · <b>Q / E</b> twist the world · <b>M</b> mute · <b>P</b> pause</span></div>
 
 <script>
 (() => {
-  const COLS = 10, ROWS = 20, SIZE = 30;
+  const N = 14, S = 32, W = N * S;
   const COLORS = {
-    I: '#4fd1c5', O: '#ffcf5c', T: '#b388ff', S: '#7ee081', Z: '#ff6b8b', J: '#5c9dff', L: '#ff9f5c'
+    I: '#4ff0ff', O: '#ffd84f', T: '#c77dff', S: '#5cff9d', Z: '#ff4f7b', J: '#4f8bff', L: '#ff9a3c'
   };
   const SHAPES = {
     I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
@@ -104,27 +187,134 @@
     L: [[0,0,1],[1,1,1],[0,0,0]],
   };
   const LINE_POINTS = [0, 100, 300, 500, 800];
+  const LINES_PER_LEVEL = 8;
+  const CLEAR_MS = 260, TWIST_MS = 700;
 
-  const board = document.getElementById('board');
-  const ctx = board.getContext('2d');
-  const nextCtx = document.getElementById('next').getContext('2d');
-  const holdCtx = document.getElementById('hold').getContext('2d');
   const $ = id => document.getElementById(id);
-  const overlay = $('overlay');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const boardEl = $('board');
+  boardEl.width = W * dpr; boardEl.height = W * dpr;
+  const ctx = boardEl.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const overlay = $('overlay'), pops = $('pops');
 
-  let grid, piece, nextType, holdType, canHold, bag;
-  let score, lines, level, dropInterval, dropTimer, lastTime;
-  let state = 'menu'; // menu | playing | paused | over
-  let flashRows = [], flashTimer = 0;
+  // ---------- Audio: a tiny synth, nothing to download ----------
+  let ac, master, noiseBuf, muted = false;
+  function initAudio() {
+    if (!ac) {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = ac.createDynamicsCompressor();
+      comp.connect(ac.destination);
+      master = ac.createGain();
+      master.gain.value = 0.55;
+      master.connect(comp);
+      // A soft echo makes the stack-melody feel spacious
+      const delay = ac.createDelay(), fb = ac.createGain(), wet = ac.createGain();
+      delay.delayTime.value = 0.27; fb.gain.value = 0.32; wet.gain.value = 0.22;
+      master.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(comp);
+    }
+    if (ac.state === 'suspended') ac.resume();
+  }
+
+  function tone(freq, { type = 'sine', gain = 0.15, dur = 0.3, when = 0, attack = 0.005, filter = 0, slide = 0 } = {}) {
+    if (!ac || muted) return;
+    const t = ac.currentTime + when;
+    const o = ac.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = o;
+    if (filter) {
+      const f = ac.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.value = filter;
+      o.connect(f); node = f;
+    }
+    node.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  function noise(dur, { gain = 0.2, when = 0, type = 'highpass', freq = 6000, sweepTo = 0, q = 1 } = {}) {
+    if (!ac || muted) return;
+    if (!noiseBuf) {
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t = ac.currentTime + when;
+    const s = ac.createBufferSource();
+    s.buffer = noiseBuf; s.loop = true;
+    const f = ac.createBiquadFilter();
+    f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t);
+    if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(t); s.stop(t + dur + 0.05);
+  }
+
+  const PENTA = [0, 2, 4, 7, 9];
+  const noteFreq = k => 130.81 * Math.pow(2, (12 * Math.floor(k / 5) + PENTA[k % 5]) / 12);
+  const rowFreq = r => noteFreq(N - 1 - r); // higher rows sing higher notes
+
+  // Each piece type has its own instrument
+  const VOICE = {
+    I: { type: 'sine', mult: 2, gain: 0.16, dur: 0.5 },
+    O: { type: 'triangle', mult: 1, gain: 0.2, dur: 0.35 },
+    T: { type: 'square', mult: 1, gain: 0.06, dur: 0.25, filter: 1800 },
+    S: { type: 'triangle', mult: 2, gain: 0.13, dur: 0.3 },
+    Z: { type: 'sawtooth', mult: 1, gain: 0.07, dur: 0.3, filter: 1400 },
+    J: { type: 'sine', mult: 1, gain: 0.2, dur: 0.6 },
+    L: { type: 'square', mult: 0.5, gain: 0.07, dur: 0.35, filter: 900 },
+  };
+
+  const sfx = {
+    move: () => tone(880, { gain: 0.025, dur: 0.04 }),
+    rotate: () => tone(1320, { type: 'triangle', gain: 0.05, dur: 0.07, slide: 1760 }),
+    hold: () => tone(660, { type: 'triangle', gain: 0.07, dur: 0.12, slide: 990 }),
+    lock: () => tone(220, { type: 'triangle', gain: 0.08, dur: 0.08 }),
+    drop: () => { tone(180, { gain: 0.45, dur: 0.2, slide: 50 }); noise(0.08, { gain: 0.08, type: 'lowpass', freq: 1200 }); },
+    clear: (n, twist) => {
+      const start = twist ? 7 : 3;
+      for (let i = 0; i < 3 + n; i++) tone(noteFreq(start + i * 2), { type: 'triangle', gain: 0.12, dur: 0.45, when: i * 0.055 });
+      noise(0.4, { gain: 0.07, type: 'bandpass', freq: 2000, sweepTo: 9000, q: 3 });
+    },
+    twist: () => {
+      noise(0.7, { gain: 0.25, type: 'bandpass', freq: 300, sweepTo: 4000, q: 2 });
+      tone(70, { gain: 0.5, dur: 0.8, slide: 35 });
+      tone(noteFreq(10), { type: 'sawtooth', gain: 0.05, dur: 0.6, filter: 2000, slide: noteFreq(15) });
+    },
+    settle: () => { tone(90, { gain: 0.45, dur: 0.25, slide: 40 }); noise(0.12, { gain: 0.1, type: 'lowpass', freq: 800 }); },
+    over: () => { for (let i = 0; i < 6; i++) tone(noteFreq(12 - i * 2), { type: 'triangle', gain: 0.12, dur: 0.5, when: i * 0.12 }); },
+  };
+
+  // ---------- Game state ----------
+  let grid, piece, queue, bag, holdType, canHold, resumeType;
+  let score = 0, lines = 0, level = 1, combo = 0, charge = 0, pendingTwist = 0;
+  let phase = 'menu', prevPhase = 'play';
+  let dropMs = 800, dropAcc = 0;
+  let clearRows = [], clearT = 0;
+  let twistT = 0, twistFrom = 0, angle = 0;
+  let movers = new Map(), settleT = 0, settleDur = 0;
+  let shake = 0, particles = [], beatGlow = 0;
+  const pulse = new Float32Array(N * N);
+  let playCol = -1, stepIdx = 0, stepAcc = 0;
 
   let best = 0;
-  try { best = +localStorage.getItem('blockfall-best') || 0; } catch (e) {}
+  try { best = +localStorage.getItem('blockfall-twist-best') || 0; } catch (e) {}
   $('best').textContent = best;
 
-  const emptyGrid = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  const emptyGrid = () => Array.from({ length: N }, () => Array(N).fill(null));
+  const ACTIVE = new Set(['play', 'clearing', 'twisting', 'settling']);
 
   function nextFromBag() {
-    if (!bag || bag.length === 0) {
+    if (!bag || !bag.length) {
       bag = Object.keys(SHAPES);
       for (let i = bag.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -134,9 +324,15 @@
     return bag.pop();
   }
 
+  function takeNext() {
+    const t = queue.shift();
+    while (queue.length < 3) queue.push(nextFromBag());
+    return t;
+  }
+
   function makePiece(type) {
     const shape = SHAPES[type].map(r => r.slice());
-    return { type, shape, x: Math.floor((COLS - shape[0].length) / 2), y: type === 'I' ? -1 : 0 };
+    return { type, shape, x: Math.floor((N - shape[0].length) / 2), y: type === 'I' ? -1 : 0 };
   }
 
   function collides(shape, x, y) {
@@ -144,7 +340,7 @@
       for (let c = 0; c < shape[r].length; c++) {
         if (!shape[r][c]) continue;
         const nx = x + c, ny = y + r;
-        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+        if (nx < 0 || nx >= N || ny >= N) return true;
         if (ny >= 0 && grid[ny][nx]) return true;
       }
     return false;
@@ -163,29 +359,32 @@
   function rotate(dir) {
     if (piece.type === 'O') return;
     const shape = rotated(piece.shape, dir);
-    // Try a few nudges so rotating near walls and floor feels forgiving
     for (const [dx, dy] of [[0,0],[-1,0],[1,0],[-2,0],[2,0],[0,-1]]) {
       if (!collides(shape, piece.x + dx, piece.y + dy)) {
         piece.shape = shape; piece.x += dx; piece.y += dy;
+        sfx.rotate();
         return;
       }
     }
   }
 
   function move(dx) {
-    if (!collides(piece.shape, piece.x + dx, piece.y)) piece.x += dx;
+    if (!collides(piece.shape, piece.x + dx, piece.y)) { piece.x += dx; sfx.move(); }
   }
 
   function softDrop() {
     if (!collides(piece.shape, piece.x, piece.y + 1)) { piece.y++; score += 1; updateHud(); }
     else lock();
-    dropTimer = 0;
+    dropAcc = 0;
   }
 
   function hardDrop() {
     let d = 0;
     while (!collides(piece.shape, piece.x, piece.y + 1)) { piece.y++; d++; }
     score += d * 2;
+    eachCell(piece, (x, y) => { if (y >= 0) burst(x, y, COLORS[piece.type], 3, 0.25); });
+    sfx.drop();
+    shake = Math.max(shake, 7);
     lock();
   }
 
@@ -195,52 +394,155 @@
     return y;
   }
 
+  function eachCell(p, fn) {
+    p.shape.forEach((row, r) => row.forEach((v, c) => v && fn(p.x + c, p.y + r)));
+  }
+
   function hold() {
     if (!canHold) return;
     const cur = piece.type;
-    if (holdType) piece = makePiece(holdType);
-    else spawn();
+    piece = makePiece(holdType || takeNext());
     holdType = cur;
     canHold = false;
-    drawMini(holdCtx, holdType);
+    sfx.hold();
+    drawHold(); drawNext();
+    if (collides(piece.shape, piece.x, piece.y)) gameOver();
   }
 
   function spawn() {
-    piece = makePiece(nextType);
-    nextType = nextFromBag();
-    drawMini(nextCtx, nextType);
+    const t = resumeType || takeNext();
+    resumeType = null;
+    piece = makePiece(t);
+    phase = 'play';
+    dropAcc = 0;
+    drawHold(); drawNext();
     if (collides(piece.shape, piece.x, piece.y)) gameOver();
+  }
+
+  function findFull() {
+    const full = [];
+    for (let r = 0; r < N; r++) if (grid[r].every(Boolean)) full.push(r);
+    return full;
   }
 
   function lock() {
     let topOut = false;
-    piece.shape.forEach((row, r) => row.forEach((v, c) => {
-      if (!v) return;
-      const y = piece.y + r;
-      if (y < 0) topOut = true;
-      else grid[y][piece.x + c] = piece.type;
-    }));
-    if (topOut) return gameOver();
-
-    const full = [];
-    for (let r = 0; r < ROWS; r++) if (grid[r].every(Boolean)) full.push(r);
-    if (full.length) {
-      flashRows = full; flashTimer = 120;
-      score += LINE_POINTS[full.length] * level;
-      lines += full.length;
-      level = Math.floor(lines / 10) + 1;
-      dropInterval = Math.max(70, 800 - (level - 1) * 70);
-    }
+    eachCell(piece, (x, y) => { if (y < 0) topOut = true; else grid[y][x] = piece.type; });
+    piece = null;
     canHold = true;
-    updateHud();
-    if (!full.length) spawn();
+    if (topOut) return gameOver();
+    sfx.lock();
+    const full = findFull();
+    if (full.length) startClear(full, false);
+    else { combo = 0; spawn(); }
   }
 
-  function clearFlashed() {
-    grid = grid.filter((_, r) => !flashRows.includes(r));
-    while (grid.length < ROWS) grid.unshift(Array(COLS).fill(null));
-    flashRows = [];
-    spawn();
+  function startClear(rows, fromTwist) {
+    phase = 'clearing';
+    clearRows = rows;
+    clearT = 0;
+    const n = rows.length;
+    combo++;
+    let pts = (LINE_POINTS[Math.min(n, 4)] + Math.max(0, n - 4) * 400) * level;
+    if (fromTwist) pts *= 2;
+    if (combo > 1) pts += 50 * (combo - 1) * level;
+    score += pts;
+    lines += n;
+    charge = Math.min(4, charge + n);
+
+    rows.forEach(r => { for (let c = 0; c < N; c++) burst(c, r, COLORS[grid[r][c]], 5, 0.5); });
+    sfx.clear(n, fromTwist);
+    shake = Math.max(shake, 4 + n * 2);
+
+    const names = ['', '', 'DOUBLE', 'TRIPLE', 'QUAD'];
+    if (fromTwist) popup(n > 1 ? `TWIST CHAIN ×2 · ${n} LINES` : 'TWIST CHAIN ×2', 'gold');
+    else if (n > 1) popup(names[n] || `${n} LINES!`, 'pink');
+    if (combo > 1) popup(`COMBO ${combo}`, 'cyan', 0.25);
+
+    const newLevel = Math.floor(lines / LINES_PER_LEVEL) + 1;
+    if (newLevel > level) {
+      level = newLevel;
+      dropMs = Math.max(80, 800 * Math.pow(0.86, level - 1));
+      pendingTwist = Math.random() < 0.5 ? -1 : 1;
+      popup(`LEVEL ${level}`, 'cyan', 0.45);
+      popup('THE WORLD TURNS', 'gold', 0.8);
+    }
+    updateHud();
+  }
+
+  function finishClear() {
+    grid = grid.filter((_, r) => !clearRows.includes(r));
+    while (grid.length < N) grid.unshift(Array(N).fill(null));
+    clearRows = [];
+    if (pendingTwist) {
+      const d = pendingTwist;
+      pendingTwist = 0;
+      startTwist(d);
+    } else spawn();
+  }
+
+  function userTwist(dir) {
+    if (charge < 4) return;
+    charge = 0;
+    resumeType = piece.type;
+    piece = null;
+    updateHud();
+    startTwist(dir);
+  }
+
+  // Rotate the board's data, then animate the canvas from the old orientation back to upright
+  function startTwist(dir) {
+    const g = emptyGrid();
+    for (let r = 0; r < N; r++)
+      for (let c = 0; c < N; c++)
+        g[r][c] = dir > 0 ? grid[N - 1 - c][r] : grid[c][N - 1 - r];
+    grid = g;
+    phase = 'twisting';
+    twistT = 0;
+    twistFrom = -90 * dir;
+    angle = twistFrom;
+    particles = [];
+    pulse.fill(0);
+    sfx.twist();
+    shake = Math.max(shake, 6);
+  }
+
+  // Every block falls straight down into the gaps below it
+  function startSettle() {
+    const g = emptyGrid();
+    movers.clear();
+    let maxDur = 0;
+    for (let c = 0; c < N; c++) {
+      let w = N - 1;
+      for (let r = N - 1; r >= 0; r--) {
+        if (!grid[r][c]) continue;
+        g[w][c] = grid[r][c];
+        if (w !== r) {
+          const dur = 150 * Math.sqrt(w - r);
+          movers.set(w * N + c, { from: r, dur });
+          maxDur = Math.max(maxDur, dur);
+        }
+        w--;
+      }
+    }
+    grid = g;
+    if (!movers.size) return afterSettle();
+    phase = 'settling';
+    settleT = 0;
+    settleDur = maxDur;
+  }
+
+  function afterSettle() {
+    const full = findFull();
+    if (full.length) startClear(full, true);
+    else spawn();
+  }
+
+  function gameOver() {
+    phase = 'over';
+    piece = null;
+    sfx.over();
+    showOverlay('GAME OVER', `Score ${score} · Lines ${lines} · Level ${level}`, 'Play again', false);
   }
 
   function updateHud() {
@@ -250,112 +552,313 @@
     if (score > best) {
       best = score;
       $('best').textContent = best;
-      try { localStorage.setItem('blockfall-best', best); } catch (e) {}
+      try { localStorage.setItem('blockfall-twist-best', best); } catch (e) {}
+    }
+    const meter = $('meter');
+    [...meter.children].forEach((el, i) => el.classList.toggle('on', i < charge));
+    meter.classList.toggle('ready', charge >= 4);
+    $('twist-hint').textContent = charge >= 4 ? 'READY! Press Q or E' : `Clear ${4 - charge} more line${4 - charge === 1 ? '' : 's'}`;
+  }
+
+  // ---------- Music: the playhead sweeps the columns and plays your stack ----------
+  function music(dt) {
+    const bpm = Math.min(156, 96 + (level - 1) * 6);
+    const stepMs = 60000 / bpm / 2;
+    stepAcc += dt;
+    while (stepAcc >= stepMs) { stepAcc -= stepMs; step(); }
+  }
+
+  function step() {
+    playCol = (playCol + 1) % N;
+    stepIdx++;
+    if (stepIdx % 4 === 0) { tone(150, { gain: 0.32, dur: 0.16, slide: 45 }); beat(); }
+    else if (stepIdx % 4 === 2) noise(0.04, { gain: 0.035, freq: 8000 });
+    if (phase === 'twisting') return;
+    const rows = [];
+    for (let r = 0; r < N; r++) if (grid[r][playCol]) rows.push(r);
+    if (!rows.length) return;
+    let pick = rows;
+    if (rows.length > 4) pick = [...new Set([0, 1, 2, 3].map(i => rows[Math.round(i * (rows.length - 1) / 3)]))];
+    const g = 1 / Math.sqrt(pick.length);
+    pick.forEach(r => {
+      const v = VOICE[grid[r][playCol]];
+      tone(rowFreq(r) * v.mult, { type: v.type, gain: v.gain * g, dur: v.dur, filter: v.filter || 0 });
+    });
+    rows.forEach(r => { pulse[r * N + playCol] = 1; });
+  }
+
+  // ---------- Effects ----------
+  function burst(c, r, color, count, power) {
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: c * S + S / 2, y: r * S + S / 2,
+        vx: (Math.random() - 0.5) * power, vy: (Math.random() - 0.8) * power,
+        life: 1, decay: 0.0011 + Math.random() * 0.0012, size: 2 + Math.random() * 4, color
+      });
     }
   }
 
-  function drawCell(c, x, y, size, color, alpha = 1) {
+  let popCount = 0;
+  function popup(text, cls = '', delay = 0) {
+    setTimeout(() => {
+      const d = document.createElement('div');
+      d.className = 'pop ' + cls;
+      d.textContent = text;
+      d.style.top = (34 + (popCount++ % 3) * 11) + '%';
+      pops.appendChild(d);
+      d.addEventListener('animationend', () => d.remove());
+    }, delay * 1000);
+  }
+
+  // ---------- Drawing ----------
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
+  }
+
+  function drawCell(c, x, y, s, color, alpha = 1, glow = 0, shrink = 0) {
+    const inset = 1.5 + shrink * s * 0.4 - glow * 1.5;
     c.globalAlpha = alpha;
+    if (glow > 0.05) { c.shadowColor = color; c.shadowBlur = 20 * glow; }
     c.fillStyle = color;
-    c.beginPath();
-    c.roundRect(x + 1, y + 1, size - 2, size - 2, size * 0.2);
+    roundRect(c, x + inset, y + inset, s - inset * 2, s - inset * 2, s * 0.22);
     c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.25)';
-    c.beginPath();
-    c.roundRect(x + 4, y + 4, size - 8, size * 0.28, size * 0.12);
+    c.shadowBlur = 0;
+    c.fillStyle = `rgba(255,255,255,${0.22 + 0.45 * glow})`;
+    roundRect(c, x + inset + 3, y + inset + 2.5, s - inset * 2 - 6, s * 0.24, s * 0.1);
     c.fill();
     c.globalAlpha = 1;
   }
 
-  function drawMini(c, type) {
-    c.clearRect(0, 0, 80, 80);
-    if (!type) return;
-    const s = SHAPES[type];
-    const cells = [];
-    s.forEach((row, r) => row.forEach((v, col) => v && cells.push([r, col])));
-    const minR = Math.min(...cells.map(p => p[0])), maxR = Math.max(...cells.map(p => p[0]));
-    const minC = Math.min(...cells.map(p => p[1])), maxC = Math.max(...cells.map(p => p[1]));
-    const size = 18;
-    const ox = (80 - (maxC - minC + 1) * size) / 2, oy = (80 - (maxR - minR + 1) * size) / 2;
-    cells.forEach(([r, col]) => drawCell(c, ox + (col - minC) * size, oy + (r - minR) * size, size, COLORS[type]));
+  function draw() {
+    ctx.clearRect(0, 0, W, W);
+    ctx.fillStyle = 'rgba(157,147,214,0.16)';
+    for (let r = 1; r < N; r++) for (let c = 1; c < N; c++) ctx.fillRect(c * S - 1, r * S - 1, 2, 2);
+
+    if (ACTIVE.has(phase) && playCol >= 0 && phase !== 'twisting') {
+      const g = ctx.createLinearGradient(playCol * S, 0, playCol * S + S, 0);
+      g.addColorStop(0, 'rgba(255,79,216,0)');
+      g.addColorStop(0.5, `rgba(255,79,216,${0.1 + 0.12 * beatGlow})`);
+      g.addColorStop(1, 'rgba(255,79,216,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(playCol * S - S / 2, 0, S * 2, W);
+    }
+
+    for (let r = 0; r < N; r++)
+      for (let c = 0; c < N; c++) {
+        const t = grid[r][c];
+        if (!t) continue;
+        let y = r;
+        if (phase === 'settling') {
+          const m = movers.get(r * N + c);
+          if (m) { const k = Math.min(1, settleT / m.dur); y = m.from + (r - m.from) * k * k; }
+        }
+        if (phase === 'clearing' && clearRows.includes(r)) {
+          const k = clearT / CLEAR_MS;
+          drawCell(ctx, c * S, y * S, S, '#ffffff', 1 - k * 0.8, 1, k);
+          continue;
+        }
+        drawCell(ctx, c * S, y * S, S, COLORS[t], 1, pulse[r * N + c]);
+      }
+
+    if (piece && phase === 'play') {
+      const gy = ghostY();
+      ctx.strokeStyle = COLORS[piece.type];
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.45;
+      eachCell({ ...piece, y: gy }, (x, y) => {
+        if (y < 0) return;
+        roundRect(ctx, x * S + 3, y * S + 3, S - 6, S - 6, S * 0.2);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+      eachCell(piece, (x, y) => { if (y >= 0) drawCell(ctx, x * S, y * S, S, COLORS[piece.type], 1, 0.35); });
+    }
+
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, board.width, board.height);
-    // grid dots
-    ctx.fillStyle = 'rgba(139,143,199,0.18)';
-    for (let r = 1; r < ROWS; r++) for (let c = 1; c < COLS; c++) ctx.fillRect(c * SIZE - 1, r * SIZE - 1, 2, 2);
+  // Hold and next previews
+  const holdEl = $('hold'), nextEl = $('next');
+  let holdCtx, nextCtx, nextDims;
+  function setupMini(el, w, h) {
+    el.width = w * dpr; el.height = h * dpr;
+    el.style.width = w + 'px'; el.style.height = h + 'px';
+    const c = el.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return c;
+  }
+  function layoutMinis() {
+    const narrow = window.matchMedia('(max-width: 820px)').matches;
+    nextDims = narrow ? { w: 170, h: 56, horiz: true } : { w: 80, h: 200, horiz: false };
+    holdCtx = setupMini(holdEl, narrow ? 64 : 80, narrow ? 56 : 80);
+    nextCtx = setupMini(nextEl, nextDims.w, nextDims.h);
+    drawHold(); drawNext();
+  }
 
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++)
-        if (grid[r][c]) {
-          const flashing = flashRows.includes(r);
-          drawCell(ctx, c * SIZE, r * SIZE, SIZE, flashing ? '#ffffff' : COLORS[grid[r][c]]);
-        }
+  function drawMini(c, type, cx, cy, size, alpha = 1) {
+    const cells = [];
+    SHAPES[type].forEach((row, r) => row.forEach((v, col) => v && cells.push([r, col])));
+    const minR = Math.min(...cells.map(p => p[0])), maxR = Math.max(...cells.map(p => p[0]));
+    const minC = Math.min(...cells.map(p => p[1])), maxC = Math.max(...cells.map(p => p[1]));
+    const ox = cx - (maxC - minC + 1) * size / 2, oy = cy - (maxR - minR + 1) * size / 2;
+    cells.forEach(([r, col]) => drawCell(c, ox + (col - minC) * size, oy + (r - minR) * size, size, COLORS[type], alpha));
+  }
 
-    if (piece && state !== 'over' && !flashRows.length) {
-      const gy = ghostY();
-      piece.shape.forEach((row, r) => row.forEach((v, c) => {
-        if (!v) return;
-        if (gy + r >= 0) drawCell(ctx, (piece.x + c) * SIZE, (gy + r) * SIZE, SIZE, COLORS[piece.type], 0.2);
-        if (piece.y + r >= 0) drawCell(ctx, (piece.x + c) * SIZE, (piece.y + r) * SIZE, SIZE, COLORS[piece.type]);
-      }));
+  function drawHold() {
+    const w = holdEl.width / dpr, h = holdEl.height / dpr;
+    holdCtx.clearRect(0, 0, w, h);
+    if (holdType) drawMini(holdCtx, holdType, w / 2, h / 2, nextDims.horiz ? 13 : 18, canHold ? 1 : 0.35);
+  }
+
+  function drawNext() {
+    const { w, h, horiz } = nextDims;
+    nextCtx.clearRect(0, 0, w, h);
+    if (!queue) return;
+    queue.forEach((t, i) => {
+      const cx = horiz ? w / 6 + i * w / 3 : w / 2;
+      const cy = horiz ? h / 2 : h / 6 + i * h / 3;
+      drawMini(nextCtx, t, cx, cy, horiz ? (i ? 10 : 13) : (i ? 14 : 18), i ? 0.6 : 1);
+    });
+  }
+
+  // Background that breathes with the beat
+  const bg = $('bg'), bctx = bg.getContext('2d');
+  let rings = [], stars = [];
+  function resizeBg() {
+    bg.width = innerWidth * dpr; bg.height = innerHeight * dpr;
+    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stars = Array.from({ length: 80 }, () => ({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, z: Math.random() }));
+  }
+  function beat() {
+    beatGlow = 1;
+    rings.push({ r: 40, a: 0.3 });
+  }
+  function drawBg(dt) {
+    const w = innerWidth, h = innerHeight, cx = w / 2, cy = h * 0.45;
+    const g = bctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.75);
+    g.addColorStop(0, `rgba(80,30,160,${0.5 + 0.25 * beatGlow})`);
+    g.addColorStop(0.55, 'rgba(25,12,70,0.9)');
+    g.addColorStop(1, 'rgba(7,6,26,1)');
+    bctx.fillStyle = g;
+    bctx.fillRect(0, 0, w, h);
+    bctx.lineWidth = 2;
+    rings = rings.filter(rg => rg.a > 0.01);
+    for (const rg of rings) {
+      rg.r += dt * 0.55; rg.a -= dt * 0.00035;
+      bctx.strokeStyle = `rgba(255,79,216,${Math.max(0, rg.a)})`;
+      bctx.beginPath(); bctx.arc(cx, cy, rg.r, 0, Math.PI * 2); bctx.stroke();
+    }
+    for (const s of stars) {
+      s.y -= dt * 0.012 * (0.3 + s.z);
+      if (s.y < 0) { s.y = h; s.x = Math.random() * w; }
+      bctx.fillStyle = `rgba(200,220,255,${0.15 + 0.5 * s.z + 0.3 * beatGlow * s.z})`;
+      const sz = 1 + s.z * 1.5;
+      bctx.fillRect(s.x, s.y, sz, sz);
     }
   }
 
+  // ---------- Main loop ----------
+  const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+  let last = 0;
   function loop(t) {
-    const dt = t - (lastTime || t);
-    lastTime = t;
-    if (state === 'playing') {
-      if (flashRows.length) {
-        flashTimer -= dt;
-        if (flashTimer <= 0) clearFlashed();
-      } else {
-        dropTimer += dt;
-        if (dropTimer >= dropInterval) {
-          dropTimer = 0;
+    const dt = Math.min(50, t - (last || t));
+    last = t;
+    if (ACTIVE.has(phase)) {
+      music(dt);
+      if (phase === 'play') {
+        dropAcc += dt;
+        if (dropAcc >= dropMs) {
+          dropAcc = 0;
           if (!collides(piece.shape, piece.x, piece.y + 1)) piece.y++;
           else lock();
         }
+      } else if (phase === 'clearing') {
+        clearT += dt;
+        if (clearT >= CLEAR_MS) finishClear();
+      } else if (phase === 'twisting') {
+        twistT += dt;
+        const p = Math.min(1, twistT / TWIST_MS);
+        angle = twistFrom * (1 - easeOutBack(p));
+        if (p >= 1) { angle = 0; startSettle(); }
+      } else if (phase === 'settling') {
+        settleT += dt;
+        if (settleT >= settleDur) {
+          movers.clear();
+          sfx.settle();
+          shake = Math.max(shake, 8);
+          afterSettle();
+        }
       }
     }
+    if (phase !== 'paused') {
+      const k = Math.exp(-dt / 220);
+      for (let i = 0; i < pulse.length; i++) pulse[i] *= k;
+      beatGlow *= Math.exp(-dt / 260);
+      for (const p of particles) {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.0012 * dt; p.life -= p.decay * dt;
+      }
+      particles = particles.filter(p => p.life > 0);
+    }
+
     draw();
+    drawBg(dt);
+    const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;
+    shake *= Math.pow(0.88, dt / 16);
+    if (shake < 0.2) shake = 0;
+    let sc = 1;
+    if (phase === 'twisting') sc = 1 - 0.1 * Math.sin(Math.PI * Math.min(1, twistT / TWIST_MS));
+    boardEl.style.transform = `translate(${sx}px, ${sy}px) rotate(${angle}deg) scale(${sc})`;
     requestAnimationFrame(loop);
   }
 
-  function showOverlay(title, text, btn) {
+  // ---------- Flow and input ----------
+  function showOverlay(title, text, btn, rules) {
     $('ov-title').textContent = title;
     $('ov-text').textContent = text;
     $('ov-btn').textContent = btn;
+    $('ov-rules').classList.toggle('hidden', !rules);
     overlay.classList.remove('hidden');
   }
 
   function start() {
+    initAudio();
     grid = emptyGrid();
-    bag = null; holdType = null; canHold = true;
-    score = 0; lines = 0; level = 1; dropInterval = 800; dropTimer = 0;
-    flashRows = [];
-    nextType = nextFromBag();
-    drawMini(holdCtx, null);
-    spawn();
+    bag = null; queue = []; holdType = null; canHold = true; resumeType = null;
+    while (queue.length < 3) queue.push(nextFromBag());
+    score = 0; lines = 0; level = 1; combo = 0; charge = 0; pendingTwist = 0;
+    dropMs = 800; angle = 0; particles = []; pulse.fill(0);
+    playCol = -1; stepIdx = 0; stepAcc = 0;
     updateHud();
-    state = 'playing';
+    spawn();
     overlay.classList.add('hidden');
   }
 
-  function gameOver() {
-    state = 'over';
-    showOverlay('Game Over', `Score ${score} · Lines ${lines}`, 'Play again');
+  function togglePause() {
+    if (phase === 'paused') {
+      phase = prevPhase;
+      overlay.classList.add('hidden');
+    } else if (ACTIVE.has(phase)) {
+      prevPhase = phase;
+      phase = 'paused';
+      showOverlay('PAUSED', 'Press P to resume', 'Resume', false);
+    }
   }
 
-  function togglePause() {
-    if (state === 'playing') { state = 'paused'; showOverlay('Paused', 'Press P to resume', 'Resume'); }
-    else if (state === 'paused') { state = 'playing'; overlay.classList.add('hidden'); }
+  function toggleMute() {
+    muted = !muted;
+    $('mute').textContent = muted ? '♪ Sound off' : '♪ Sound on';
   }
 
   function act(a) {
     if (a === 'pause') return togglePause();
-    if (state !== 'playing' || flashRows.length) return;
+    if (a === 'mute') return toggleMute();
+    if (phase !== 'play') return;
     switch (a) {
       case 'left': move(-1); break;
       case 'right': move(1); break;
@@ -364,38 +867,61 @@
       case 'soft': softDrop(); break;
       case 'drop': hardDrop(); break;
       case 'hold': hold(); break;
+      case 'twistL': userTwist(-1); break;
+      case 'twistR': userTwist(1); break;
     }
   }
 
   const KEYS = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'rotate', KeyX: 'rotate', KeyZ: 'rotateBack',
-    ArrowDown: 'soft', Space: 'drop', KeyC: 'hold', ShiftLeft: 'hold', KeyP: 'pause', Escape: 'pause'
+    ArrowDown: 'soft', Space: 'drop', KeyC: 'hold', ShiftLeft: 'hold', KeyQ: 'twistL', KeyE: 'twistR',
+    KeyP: 'pause', Escape: 'pause', KeyM: 'mute'
   };
   document.addEventListener('keydown', e => {
-    if ((e.code === 'Enter' || e.code === 'Space') && (state === 'menu' || state === 'over')) { e.preventDefault(); return start(); }
+    if ((e.code === 'Enter' || e.code === 'Space') && (phase === 'menu' || phase === 'over')) {
+      e.preventDefault();
+      return start();
+    }
     const a = KEYS[e.code];
     if (!a) return;
     e.preventDefault();
     act(a);
   });
 
-  $('ov-btn').addEventListener('click', () => state === 'paused' ? togglePause() : start());
+  $('ov-btn').addEventListener('click', () => phase === 'paused' ? togglePause() : start());
+  $('mute').addEventListener('click', e => { e.currentTarget.blur(); toggleMute(); });
 
-  // Touch buttons, with auto-repeat for move/soft drop when held
   document.querySelectorAll('.touch button').forEach(btn => {
     let repeat;
     const a = btn.dataset.act;
     const stop = () => { clearTimeout(repeat); clearInterval(repeat); };
     btn.addEventListener('pointerdown', e => {
       e.preventDefault();
+      initAudio();
       act(a);
       if (['left', 'right', 'soft'].includes(a)) repeat = setTimeout(() => { repeat = setInterval(() => act(a), 60); }, 180);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
   });
 
+  window.addEventListener('resize', () => { resizeBg(); layoutMinis(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && ACTIVE.has(phase)) togglePause(); });
+
   grid = emptyGrid();
+  resizeBg();
+  layoutMinis();
+  updateHud();
   requestAnimationFrame(loop);
+
+  // Small hook so the page can be smoke-tested from the console
+  window.__blockfall = { get state() { return { phase, score, lines, level, charge }; } };
+  if (location.hash === '#debug') {
+    Object.assign(window.__blockfall, {
+      charge: () => { charge = 4; updateHud(); },
+      // Fill the left half of the bottom rows so a twist drops them into full lines
+      stack: () => { for (let r = 0; r < N; r++) for (let c = 0; c < 7; c++) grid[r][c] = 'IOTSZJL'[(r + c) % 7]; },
+    });
+  }
 })();
 </script>
 </body>
